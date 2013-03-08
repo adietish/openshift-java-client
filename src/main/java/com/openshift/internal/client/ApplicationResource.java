@@ -42,6 +42,7 @@ import com.openshift.client.ICartridgeConstraint;
 import com.openshift.client.IDomain;
 import com.openshift.client.IEmbeddableCartridge;
 import com.openshift.client.IEmbeddedCartridge;
+import com.openshift.client.IGearGroup;
 import com.openshift.client.IGearProfile;
 import com.openshift.client.IOpenShiftConnection;
 import com.openshift.client.OpenShiftException;
@@ -50,6 +51,7 @@ import com.openshift.client.utils.HostUtils;
 import com.openshift.client.utils.RFC822DateUtils;
 import com.openshift.internal.client.response.ApplicationResourceDTO;
 import com.openshift.internal.client.response.CartridgeResourceDTO;
+import com.openshift.internal.client.response.GearGroupResourceDTO;
 import com.openshift.internal.client.response.Link;
 import com.openshift.internal.client.response.Message;
 import com.openshift.internal.client.ssh.ApplicationPortForwarding;
@@ -81,6 +83,7 @@ public class ApplicationResource extends AbstractOpenShiftResource implements IA
 	private static final String LINK_REMOVE_ALIAS = "REMOVE_ALIAS";
 	private static final String LINK_ADD_CARTRIDGE = "ADD_CARTRIDGE";
 	private static final String LINK_LIST_CARTRIDGES = "LIST_CARTRIDGES";
+	private static final String LINK_GET_GEAR_GROUPS = "GET_GEAR_GROUPS";
 
 	/** The (unique) uuid of this application. */
 	private final String uuid;
@@ -112,6 +115,8 @@ public class ApplicationResource extends AbstractOpenShiftResource implements IA
 	/** The aliases of this application. */
 	private final List<String> aliases;
 
+	private Collection<IGearGroup> gearGroups;
+	
 	/**
 	 * List of configured embedded cartridges. <code>null</code> means list if
 	 * not loaded yet.
@@ -430,6 +435,23 @@ public class ApplicationResource extends AbstractOpenShiftResource implements IA
 		}
 	}
 
+	public Collection<IGearGroup> getGearGroups() throws OpenShiftException {
+		if (gearGroups == null) {
+			loadGearGroups();
+		}
+		return gearGroups;
+	}
+
+	private Collection<IGearGroup> loadGearGroups() throws OpenShiftException {
+		List<IGearGroup> gearGroups = new ArrayList<IGearGroup>();
+		Collection<GearGroupResourceDTO> dtos = new GetGearGroupsRequest().execute(); 
+		for(GearGroupResourceDTO dto : dtos) {
+			gearGroups.add(new GearGroupResource(dto, getService()));
+		}
+		
+		return this.gearGroups = gearGroups;
+	}
+	
 	public boolean waitForAccessible(long timeout) throws OpenShiftException {
 		try {
 			return waitForResolved(timeout, System.currentTimeMillis());
@@ -480,6 +502,9 @@ public class ApplicationResource extends AbstractOpenShiftResource implements IA
 	public void refresh() throws OpenShiftException {
 		if (this.embeddedCartridges != null) {
 			this.embeddedCartridges = loadEmbeddedCartridges();
+		}
+		if (this.gearGroups != null) {
+			this.gearGroups = loadGearGroups();
 		}
 		if (this.ports != null) {
 			this.ports = loadPorts();
@@ -843,6 +868,13 @@ public class ApplicationResource extends AbstractOpenShiftResource implements IA
 		public String execute(String cartridgeName) throws OpenShiftException {
 			return super
 					.execute(cartridgeName);
+		}
+	}
+
+	private class GetGearGroupsRequest extends ServiceRequest {
+
+		protected GetGearGroupsRequest() {
+			super(LINK_GET_GEAR_GROUPS);
 		}
 	}
 }
